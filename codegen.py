@@ -5,6 +5,7 @@ import argparse
 import sys
 import os
 
+from abc import ABCMeta, abstractmethod
 from mako.template import Template
 from clang.cindex import TypeKind
 from clang.cindex import StorageClass
@@ -31,6 +32,85 @@ glue_lang = (
     "c++",
 )
 
+marshal_types = (
+    "bytes",
+    "word",
+    "dword",
+    "qword",
+    "float",
+    "bool",
+)
+
+
+class Command(object):
+
+    def add_element(self, name, value_type):
+        pass
+
+    def __init__(self):
+        pass
+
+
+class MarshalBase(object):
+
+    def __validate(self):
+        for val in marshal_types:
+            if self.methods.get(val, None) is None:
+                raise RuntimeError("[x] Missing marshaling method: {} must be implemented!".format(val))
+
+    def __init__(self, file_path):
+        self.methods = {}
+        if not os.path.isfile(file_path):
+            raise RuntimeError("[x] Failed to find requested file for marshaler! {}".format(file_path))
+
+        for tok in extract_tokens_from_file(file_path):
+            is_valid, msg = method_has_attr(tok, "marshal")
+            if is_valid:
+                mtype = msg.split(" ")
+                if len(mtype) < 2:
+                    raise RuntimeError("[x] Invalid annotation on marshal method! Must provide a type, e.g.: marshal bytes")
+
+                found = False
+                for i in mtype:
+                    if i in marshal_types:
+                        self.methods[i] = Function(tok)
+                        found = True
+                        break
+                if not found:
+                    raise RuntimeError("[x] Improperly formatted marshaling method! Must select one of these values: {}".format(
+                        ", ".join(marshal_types)
+                    ))
+
+        self.__validate()
+
+
+
+
+    def get_controller(self):
+        pass
+
+    def get_agent_unpack(self):
+        pass
+
+    def get_agent_pack(self):
+        pass
+
+
+class CommsBase(object):
+
+    def __init__(self, file_path):
+        if not os.path.isfile(file_path):
+            raise RuntimeError("[x] Failed to find requested file for comms! {}".format(file_path))
+
+    def build_controller(self):
+        pass
+
+    def build_send(self):
+        pass
+
+    def build_recv(self):
+        pass
+
 
 class CodeEmitter(object):
 
@@ -51,7 +131,6 @@ class CodeEmitter(object):
         frag = self.fragments.get(btype, None)
         if frag is None:
             raise RuntimeError("[x] Invalid fragment type selected!")
-
 
 
 class CodeGenRegistrar(type):
@@ -154,9 +233,9 @@ def method_has_attr(node, attr_text):
 
     for ctok in node.get_children():
         if ctok.kind == CursorKind.ANNOTATE_ATTR and ctok.spelling.startswith(attr_text):
-            return True
+            return True, ctok.spelling
 
-    return False
+    return False, None
 
 
 if __name__ == '__main__':
