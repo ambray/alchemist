@@ -6,7 +6,6 @@ import shutil
 import sys
 import os
 
-from abc import ABCMeta, abstractmethod
 from mako.template import Template
 from clang.cindex import TypeKind
 from clang.cindex import StorageClass
@@ -15,8 +14,6 @@ from fragments import *
 
 if sys.platform == 'darwin':
     clang.cindex.Config.set_library_path("/Library/Developer/CommandLineTools/usr/lib")
-
-
 
 storage_class_mapping = {
     StorageClass.NONE: "",
@@ -42,6 +39,12 @@ marshal_types = (
     "qword",
     "float",
     "bool",
+)
+
+param_annotations = (
+    "out",
+    "out-dealloc",
+    "map",
 )
 
 
@@ -85,9 +88,6 @@ class MarshalBase(object):
                     ))
 
         self.__validate()
-
-
-
 
     def get_controller(self):
         pass
@@ -182,12 +182,108 @@ class CodeGenBaseImpl(CodeGenBaseObject):
             tmp.transform(cursor)
 
 
+class Param(object):
+    """
+    A wrapper for a function parameter. It includes parsed semantic information from annotations.
+    """
+
+    def __parse_annotations(self):
+        for annotation in self.annotations:
+            val = annotation.split(" ")
+            if val[0] == "out":
+                self.out_param = True
+            elif val[0] == "out-dealloc":
+                self.dealloc = val[2]
+                self.out_param = True
+            elif val[0] == "map":
+                self.mapped_symbol = val[1]
+            else:
+                continue
+
+    def get_type(self):
+        """
+        :return: Returns the string representation of the underlying param type
+        """
+        return self.cursor.type.spelling
+
+    def get_param_name(self):
+        """
+        :return:  Returns the name of the parameter
+        """
+        return self.cursor.spelling
+
+    def get_typekind(self):
+        """
+        :return:  Retrieves the TypeKind value of the param
+        """
+        return self.cursor.type.kind
+
+    def get_deref_type(self):
+        """
+        :return: If the type is a pointer, gets the pointed-to type
+        """
+        if self.cursor.type.kind != TypeKind.POINTER:
+            raise RuntimeError("[x] Can't get the pointee of a non-pointer type!")
+
+        return self.cursor.type.get_pointee()
+
+    def get_deref_decl(self):
+        """
+        :return: If the type is a pointer, gets the string representation
+                 of the pointed-to type
+        """
+        return self.get_deref_type().spelling
+
+    def __repr__(self):
+        return "<Param {} : Type - {}, Method Position - {}>".format(self.cursor.spelling, self.cursor.type.spelling,
+                                        self.position, ", ".join(self.annotations))
+
+    def __init__(self, cursor, annotations, position):
+        """
+        :param cursor:  The cursor pointing to the argument in question
+        :param annotations:  Annotation that relate to this particular parameter
+        :param position:  The position (from 1..n) in the function the argument appears at
+        """
+        self.out_param = False
+        self.dealloc = None
+        self.mapped_symbol = None
+        self.cursor = cursor
+        self.annotations = annotations
+        self.position = position
+        self.__parse_annotations()
+
+
 class Function(object):
     """
     An object wrapping a clang cursor pointer to a function.
     Provides helper methods to generate glue code - function signature creation,
     interface for marshaling code generator, etc
     """
+
+    def __repr__(self):
+        return "[Function: (name: {}), (proto: {}), params: {}]".format(
+            self.cursor.spelling, self.get_signature(), ", ".join([str(param) for param in self.get_params()])
+        )
+
+    def __extract_param_annotations(self, token):
+        relevant = []
+        for annotation in self.annotations:
+            if annotation.find(token.spelling) != -1:
+                relevant.append(annotation)
+
+        return relevant
+
+    def get_params(self):
+        res = []
+        i = 0
+        for tok in self.cursor.get_arguments():
+            res.append(Param(tok, self.__extract_param_annotations(tok), i))
+            i += 1
+
+        return res
+
+    def get_failure_check_info(self):
+        pass
 
     def get_annotations(self):
         res = []
@@ -197,6 +293,10 @@ class Function(object):
 
         return res
 
+    def __parse_annotations(self):
+        for annotate in self.annotations:
+            pass
+
     # TODO: Handle edge cases - variadic and template methods, member functions, static
     # and const/constexpr methods, calling conventions, alternate function syntax methods
     def get_signature(self):
@@ -205,12 +305,14 @@ class Function(object):
             self.cursor.type.get_result().spelling,
             self.cursor.displayname)
 
+
     def __init__(self, node):
         if not isinstance(node, clang.cindex.Cursor) or not node.type.kind == TypeKind.FUNCTIONPROTO:
             raise RuntimeError("[x] Invalid node type presented!")
 
         self.cursor = node
         self.name = node.spelling
+        self.annotations = self.get_annotations()
 
 
 #TODO: Handle namespaces
@@ -249,6 +351,11 @@ def method_has_attr(node, attr_text):
     return False, None
 
 
+def test():
+    common_includes_path = os.path.relpath(os.path.join(".", "source", "common_includes"))
+    toks = extract_tokens_from_file(os.path.join(".", "source", "capabilities", "windows", "get_file", "get_file.c"), args=("-x", "c++", "-I{}".format(common_includes_path)))
+    return toks
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--file", dest="path", action="store")
@@ -264,6 +371,6 @@ if __name__ == '__main__':
             funcs[token.spelling] = Function(token)
 
     for func in funcs.keys():
-        print("{}: {}".format(funcs[func].get_signature(), ", ".join(funcs[func].get_annotations())))
+        print("{}".format(funcs[func]))
 
 
