@@ -2,6 +2,7 @@
 
 import clang.cindex
 import argparse
+import shutil
 import sys
 import os
 
@@ -14,6 +15,8 @@ from fragments import *
 
 if sys.platform == 'darwin':
     clang.cindex.Config.set_library_path("/Library/Developer/CommandLineTools/usr/lib")
+
+
 
 storage_class_mapping = {
     StorageClass.NONE: "",
@@ -186,6 +189,14 @@ class Function(object):
     interface for marshaling code generator, etc
     """
 
+    def get_annotations(self):
+        res = []
+        for tok in self.cursor.get_children():
+            if tok.kind == CursorKind.ANNOTATE_ATTR:
+                res.append(tok.spelling)
+
+        return res
+
     # TODO: Handle edge cases - variadic and template methods, member functions, static
     # and const/constexpr methods, calling conventions, alternate function syntax methods
     def get_signature(self):
@@ -241,15 +252,18 @@ def method_has_attr(node, attr_text):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--file", dest="path", action="store")
+    common_includes_path = os.path.relpath(os.path.join(os.path.split(__file__)[0], "source", "common_includes"))
+    print("Includes: {}".format(common_includes_path))
 
     args = parser.parse_args()
 
     funcs = dict()
-    toks = extract_tokens_from_file(args.path)
+    toks = extract_tokens_from_file(args.path, args=("-x", "c++", "-I{}".format(common_includes_path)))
     for token in toks:
         if token.type.kind == TypeKind.FUNCTIONPROTO:
             funcs[token.spelling] = Function(token)
 
     for func in funcs.keys():
-        print("{}".format(funcs[func].get_signature()))
+        print("{}: {}".format(funcs[func].get_signature(), ", ".join(funcs[func].get_annotations())))
+
 
