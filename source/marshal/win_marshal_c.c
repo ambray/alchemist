@@ -4,6 +4,7 @@
 
 SET_ANNOTATION("marshal", "bytes") 
 OUT_PARAM(outbuf)
+FAIL_IF(return, false)
 bool marshal_bytes(unsigned long id, const unsigned char* buf, unsigned long size,
                    unsigned char* outbuf, unsigned long outbuf_size)
 {
@@ -26,6 +27,7 @@ bool marshal_bytes(unsigned long id, const unsigned char* buf, unsigned long siz
 
 SET_ANNOTATION("marshal", "word")
 OUT_PARAM(outbuf)
+FAIL_IF(return, false)
 bool marshal_word(unsigned long id, unsigned short val, unsigned char* outbuf, 
                   unsigned long outbuf_size)
 {
@@ -40,6 +42,7 @@ bool marshal_word(unsigned long id, unsigned short val, unsigned char* outbuf,
 
 SET_ANNOTATION("marshal", "dword")
 OUT_PARAM(outbuf)
+FAIL_IF(return, false)
 bool marshal_dword(unsigned long id, unsigned int val, unsigned char* outbuf, unsigned long outsize)
 {
 
@@ -48,6 +51,7 @@ bool marshal_dword(unsigned long id, unsigned int val, unsigned char* outbuf, un
 
 SET_ANNOTATION("marshal", "qword")
 OUT_PARAM(outbuf)
+FAIL_IF(return, false)
 bool marshal_qword(unsigned long id, unsigned long long val, unsigned char* outbuf, 
                    unsigned long outsize)
 {
@@ -65,6 +69,7 @@ bool marshal_float(unsigned long id, float val, unsigned char* outbuf, unsigned 
 
 SET_ANNOTATION("marshal", "bool")
 OUT_PARAM(outbuf)
+FAIL_IF(return, false)
 bool marshal_bool(unsigned long id, bool val, unsigned char* outbuf, unsigned long osize)
 {
     return false;
