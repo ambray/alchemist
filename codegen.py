@@ -261,8 +261,10 @@ class Function(object):
     """
 
     def __repr__(self):
-        return "[Function: (name: {}), (proto: {}), params: {}]".format(
-            self.cursor.spelling, self.get_signature(), ", ".join([str(param) for param in self.get_params()])
+        return "[Function: (name: {}), (proto: {}), (fails if: {}), params: {}]".format(
+            self.cursor.spelling, self.get_signature(),
+            ", ".join(["<{} {}>".format(k, self.fail_if.get(k)) for k in self.fail_if.keys()]),
+            ", ".join([str(param) for param in self.params])
         )
 
     def __extract_param_annotations(self, token):
@@ -273,7 +275,15 @@ class Function(object):
 
         return relevant
 
-    def get_params(self):
+    def __extract_method_annotations(self):
+        for annotation in self.annotations:
+            if annotation.startswith("fail-if"):
+                tmp = annotation.split(" ")
+                if len(tmp) < 3:
+                    raise RuntimeError("[x] Invalid failure case provided!")
+                self.fail_if[tmp[1]] = tmp[2]
+
+    def __get_params(self):
         res = []
         i = 0
         for tok in self.cursor.get_arguments():
@@ -282,8 +292,13 @@ class Function(object):
 
         return res
 
-    def get_failure_check_info(self):
-        pass
+    def get_failure_check_info(self, case):
+        """
+        :param case:  Failure case to check for. Eventually will be "throws" or "return", but only return is
+                      currently supported.
+        :return:  The value to check for, or None if not provided
+        """
+        return self.fail_if.get(case, None)
 
     def get_annotations(self):
         res = []
@@ -293,10 +308,6 @@ class Function(object):
 
         return res
 
-    def __parse_annotations(self):
-        for annotate in self.annotations:
-            pass
-
     # TODO: Handle edge cases - variadic and template methods, member functions, static
     # and const/constexpr methods, calling conventions, alternate function syntax methods
     def get_signature(self):
@@ -305,14 +316,16 @@ class Function(object):
             self.cursor.type.get_result().spelling,
             self.cursor.displayname)
 
-
     def __init__(self, node):
         if not isinstance(node, clang.cindex.Cursor) or not node.type.kind == TypeKind.FUNCTIONPROTO:
             raise RuntimeError("[x] Invalid node type presented!")
 
         self.cursor = node
+        self.fail_if = dict()
         self.name = node.spelling
         self.annotations = self.get_annotations()
+        self.__extract_method_annotations()
+        self.params = self.__get_params()
 
 
 #TODO: Handle namespaces
