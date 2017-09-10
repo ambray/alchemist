@@ -50,10 +50,7 @@ param_annotations = (
 
 class Command(object):
 
-    def add_element(self, name, value_type):
-        pass
-
-    def __init__(self):
+    def __init__(self, name, entry_point, in_data, out_data):
         pass
 
 
@@ -76,6 +73,7 @@ class MarshalBase(object):
                 if len(mtype) < 2:
                     raise RuntimeError("[x] Invalid annotation on marshal method! Must provide a type, e.g.: marshal bytes")
 
+                print("{}".format(", ".join(mtype)))
                 found = False
                 for i in mtype:
                     if i in marshal_types:
@@ -372,18 +370,24 @@ def test():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--file", dest="path", action="store")
+    parser.add_argument("--marshal", dest="marshal", action="store")
     common_includes_path = os.path.relpath(os.path.join(os.path.split(__file__)[0], "source", "common_includes"))
     print("Includes: {}".format(common_includes_path))
 
     args = parser.parse_args()
+    if args.path is not None:
+        funcs = dict()
+        toks = extract_tokens_from_file(args.path, args=("-x", "c++", "-I{}".format(common_includes_path)))
+        for token in toks:
+            if token.type.kind == TypeKind.FUNCTIONPROTO:
+                funcs[token.spelling] = Function(token)
 
-    funcs = dict()
-    toks = extract_tokens_from_file(args.path, args=("-x", "c++", "-I{}".format(common_includes_path)))
-    for token in toks:
-        if token.type.kind == TypeKind.FUNCTIONPROTO:
-            funcs[token.spelling] = Function(token)
+        for func in funcs.keys():
+            print("{}".format(funcs[func]))
+    if args.marshal is not None:
+        marsh = MarshalBase(args.marshal)
+        for k in marsh.methods.keys():
+            print("{} - {}".format(k, marsh.methods.get(k)))
 
-    for func in funcs.keys():
-        print("{}".format(funcs[func]))
 
 

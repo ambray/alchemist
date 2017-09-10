@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include "../common_includes/alchemy_defs.h"
 
-SET_ANNOTATION("marshal", "bytes") 
+MARSHAL_TYPE(bytes)
 OUT_PARAM(outbuf)
 FAIL_IF(return, false)
 bool marshal_bytes(unsigned long id, const unsigned char* buf, unsigned long size,
@@ -25,7 +25,7 @@ bool marshal_bytes(unsigned long id, const unsigned char* buf, unsigned long siz
     return true;
 }
 
-SET_ANNOTATION("marshal", "word")
+MARSHAL_TYPE(word)
 OUT_PARAM(outbuf)
 FAIL_IF(return, false)
 bool marshal_word(unsigned long id, unsigned short val, unsigned char* outbuf, 
@@ -40,7 +40,7 @@ bool marshal_word(unsigned long id, unsigned short val, unsigned char* outbuf,
     return true;
 }
 
-SET_ANNOTATION("marshal", "dword")
+MARSHAL_TYPE(dword)
 OUT_PARAM(outbuf)
 FAIL_IF(return, false)
 bool marshal_dword(unsigned long id, unsigned int val, unsigned char* outbuf, unsigned long outsize)
@@ -49,7 +49,7 @@ bool marshal_dword(unsigned long id, unsigned int val, unsigned char* outbuf, un
     return true;
 }
 
-SET_ANNOTATION("marshal", "qword")
+MARSHAL_TYPE(qword)
 OUT_PARAM(outbuf)
 FAIL_IF(return, false)
 bool marshal_qword(unsigned long id, unsigned long long val, unsigned char* outbuf, 
@@ -59,7 +59,7 @@ bool marshal_qword(unsigned long id, unsigned long long val, unsigned char* outb
     return false;
 }
 
-SET_ANNOTATION("marshal", "float")
+MARSHAL_TYPE(float)
 OUT_PARAM(outbuf)
 bool marshal_float(unsigned long id, float val, unsigned char* outbuf, unsigned long osize)
 {
@@ -67,7 +67,7 @@ bool marshal_float(unsigned long id, float val, unsigned char* outbuf, unsigned 
 }
 
 
-SET_ANNOTATION("marshal", "bool")
+MARSHAL_TYPE(bool)
 OUT_PARAM(outbuf)
 FAIL_IF(return, false)
 bool marshal_bool(unsigned long id, bool val, unsigned char* outbuf, unsigned long osize)
