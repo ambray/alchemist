@@ -3,6 +3,7 @@
 #include <Windows.h>
 #else
 
+#define NULL                        (void*)0
 #define HANDLE                      void*
 #define INVALID_HANDLE_VALUE        ((void*)-1)
 #define GENERIC_READ                0x80000000

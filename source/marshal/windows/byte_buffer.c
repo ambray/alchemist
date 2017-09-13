@@ -68,7 +68,7 @@ bool marshal_float(unsigned long id, float val, unsigned char* outbuf, unsigned 
 }
 
 
-MARSHAL_TYPE(bool)
+MARSHAL_ENTRY(bool)
 OUT_PARAM(outbuf)
 FAIL_IF(return, false)
 bool marshal_bool(unsigned long id, bool val, unsigned char* outbuf, unsigned long osize)

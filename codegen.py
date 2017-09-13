@@ -98,11 +98,9 @@ class MarshalBase(object):
         if len(mt) < 2:
             raise RuntimeError("[x] Invalid annotation on unmarshal method! Must provide a type, e.g.: bytes")
 
-        for i in mt:
-            if i not in marshal_types:
-                raise RuntimeError("[x] Invalid unmarshal type! Must be one of the following: {}".format(", ".join(marshal_types)))
-            self.unmarshal_methods[i] = Function(tok)
-            break
+        if mt[1] not in marshal_types:
+            raise RuntimeError("[x] Invalid unmarshal type! Must be one of the following: {}".format(", ".join(marshal_types)))
+        self.unmarshal_methods[mt[1]] = Function(tok)
         return True
 
     def __add_if_marshal(self, tok):
@@ -114,25 +112,23 @@ class MarshalBase(object):
         if len(mtype) < 2:
             raise RuntimeError("[x] Invalid annotation on marshal method! Must provide a type, e.g.: bytes")
 
-        for i in mtype:
-            if i not in marshal_types:
-                raise RuntimeError("[x] Improperly formatted marshaling method! Must select one of these values: {}".format(
+        if mtype[1] not in marshal_types:
+            raise RuntimeError("[x] Improperly formatted marshaling method! Received {}, Must select one of these values: {}".format(
+                    mtype[1],
                     ", ".join(marshal_types)
                 ))
 
-            self.methods[i] = Function(tok)
-            break
+        self.methods[mtype[1]] = Function(tok)
         return True
 
-    def __init__(self, file_path, args=None):
+    def __init__(self, file_path, args=None, errors=None):
         self.methods = {}
         self.unmarshal_methods = {}
         if not os.path.isfile(file_path):
             raise RuntimeError("[x] Failed to find requested file for marshaler! {}".format(file_path))
 
-        for tok in extract_tokens_from_file(file_path, include_paths=() if args is None else args):
+        for tok in extract_tokens_from_file(file_path, include_paths=() if args is None else args, print_diags=errors):
             if not self.__add_if_marshal(tok) or not self.__add_if_unmarshal(tok):
-                print("Here: {}, {}".format(tok.spelling, tok.type.kind))
                 continue
 
         self.__validate()
@@ -387,7 +383,7 @@ def __extract_diag_strings(diag_iter):
 #TODO: Handle namespaces
 def extract_tokens_from_file(path, include_paths=(),
                              node_filter=lambda x, p: True if x.location.file.name == p else False,
-                             args=('-x', 'c++')):
+                             args=('-x', 'c++'), print_diags=False):
     """
     Retrieves all of the top-level tokens belonging to the file provided as "path"
     :param path: Path to the file to parse
@@ -408,8 +404,8 @@ def extract_tokens_from_file(path, include_paths=(),
     idx = clang.cindex.Index.create()
     tu = idx.parse(path, fin_args)
 
-    #if tu.diagnostics is not None:
-    #    raise RuntimeError("[x] Some errors occurred!\n{}".format(__extract_diag_strings(tu.diagnostics)))
+    if tu.diagnostics is not None and print_diags:
+        print("[x] Compiler errors/warnings occurred!\n{}".format(__extract_diag_strings(tu.diagnostics)))
 
     for node in tu.cursor.get_children():
         if node_filter(node, path):
@@ -443,13 +439,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--file", dest="path", action="store")
     parser.add_argument("--marshal", dest="marshal", action="store")
+    parser.add_argument("--print-errors", dest="errors", action="store_true")
     common_includes_path = os.path.relpath(os.path.join(os.path.split(__file__)[0], "source", "common_includes"))
     print("Includes: {}".format(common_includes_path))
 
     args = parser.parse_args()
     if args.path is not None:
         funcs = dict()
-        toks = extract_tokens_from_file(args.path, include_paths=common_includes_path)
+        toks = extract_tokens_from_file(args.path, include_paths=common_includes_path, print_diags=args.errors)
         for token in toks:
             if token.type.kind == TypeKind.FUNCTIONPROTO:
                 funcs[token.spelling] = Function(token)
@@ -457,7 +454,7 @@ if __name__ == '__main__':
         for func in funcs.keys():
             print("{}".format(funcs[func]))
     if args.marshal is not None:
-        marsh = MarshalBase(args.marshal, args=common_includes_path)
+        marsh = MarshalBase(args.marshal, args=common_includes_path, errors=args.errors)
         for k in marsh.methods.keys():
             print("{} - {}".format(k, marsh.methods.get(k)))
 
