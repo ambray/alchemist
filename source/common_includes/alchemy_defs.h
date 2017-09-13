@@ -18,7 +18,8 @@
 // value should be the value to check for failure.
 #define FAIL_IF(type, value) __attribute__((annotate("fail-if " ## #type ## " " ##  #value)))
 
-#define MARSHAL_TYPE(x) __attribute__((annotate("marshal " ## #x)))
+#define MARSHAL_ENTRY(x) __attribute__((annotate("marshal " ## #x)))
+#define UNMARSHAL_ENTRY(x) __attribute__((annotate("unmarshal " ##  #x)))
 
 #else
 
@@ -29,5 +30,6 @@
 #define ENTRY_POINT
 #define FAIL_IF(type, value)
 #define MARSHAL_TYPE(x)
+#define UNMARSHAL_TYPE(x)
 
 #endif

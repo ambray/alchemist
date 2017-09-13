@@ -1,8 +1,9 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include "../common_includes/alchemy_defs.h"
+#include <string.h>
+#include <alchemy_defs.h>
 
-MARSHAL_TYPE(bytes)
+MARSHAL_ENTRY(bytes)
 OUT_PARAM(outbuf)
 FAIL_IF(return, false)
 bool marshal_bytes(unsigned long id, const unsigned char* buf, unsigned long size,
@@ -25,7 +26,7 @@ bool marshal_bytes(unsigned long id, const unsigned char* buf, unsigned long siz
     return true;
 }
 
-MARSHAL_TYPE(word)
+MARSHAL_ENTRY(word)
 OUT_PARAM(outbuf)
 FAIL_IF(return, false)
 bool marshal_word(unsigned long id, unsigned short val, unsigned char* outbuf, 
@@ -40,7 +41,7 @@ bool marshal_word(unsigned long id, unsigned short val, unsigned char* outbuf,
     return true;
 }
 
-MARSHAL_TYPE(dword)
+MARSHAL_ENTRY(dword)
 OUT_PARAM(outbuf)
 FAIL_IF(return, false)
 bool marshal_dword(unsigned long id, unsigned int val, unsigned char* outbuf, unsigned long outsize)
@@ -49,7 +50,7 @@ bool marshal_dword(unsigned long id, unsigned int val, unsigned char* outbuf, un
     return true;
 }
 
-MARSHAL_TYPE(qword)
+MARSHAL_ENTRY(qword)
 OUT_PARAM(outbuf)
 FAIL_IF(return, false)
 bool marshal_qword(unsigned long id, unsigned long long val, unsigned char* outbuf, 
@@ -59,7 +60,7 @@ bool marshal_qword(unsigned long id, unsigned long long val, unsigned char* outb
     return false;
 }
 
-MARSHAL_TYPE(float)
+MARSHAL_ENTRY(float)
 OUT_PARAM(outbuf)
 bool marshal_float(unsigned long id, float val, unsigned char* outbuf, unsigned long osize)
 {

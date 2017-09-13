@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
 import clang.cindex
+import itertools
 import argparse
-import shutil
+import random
 import sys
 import os
 
@@ -49,9 +50,36 @@ param_annotations = (
 
 
 class Command(object):
+    """
+    Class to manage and track command data.
+    """
+
+    def controller_unmarshal_task_results(self, marshal):
+        pass
+
+    def controller_marshal_task(self, marshal):
+        pass
+
+    def client_unmarshal_task(self, marshal):
+        pass
+
+    def client_marshal_task_results(self, marshal):
+        pass
 
     def __init__(self, name, entry_point, in_data, out_data):
-        pass
+        """
+        :param name:  Human-friendly name for the command
+        :param entry_point: Entry point; should be a Function(...)
+        :param in_data: Key-value pairs of id/data type for task data from controller -> agent
+        :param out_data:  Key-value pairs of id/data type for task data from agent -> controller
+        """
+        self.name = name
+        self.entry = entry_point
+        self.id = random.getrandbits(32)
+        self.in_values = (type(k, (),
+                                {'name': k, 'id': random.getrandbits(32), 'type': in_data.get(k)}) for k in in_data.keys())
+        self.out_values = (type(k, (),
+                                {'name': k, 'id': random.getrandbits(32), 'type': out_data.get(k)}) for k in out_data.keys())
 
 
 class MarshalBase(object):
@@ -61,29 +89,51 @@ class MarshalBase(object):
             if self.methods.get(val, None) is None:
                 raise RuntimeError("[x] Missing marshaling method: {} must be implemented!".format(val))
 
-    def __init__(self, file_path):
+    def __add_if_unmarshal(self, tok):
+        is_valid, msg = method_has_attr(tok, "unmarshal")
+        if not is_valid:
+            return False
+
+        mt = msg.split(" ")
+        if len(mt) < 2:
+            raise RuntimeError("[x] Invalid annotation on unmarshal method! Must provide a type, e.g.: bytes")
+
+        for i in mt:
+            if i not in marshal_types:
+                raise RuntimeError("[x] Invalid unmarshal type! Must be one of the following: {}".format(", ".join(marshal_types)))
+            self.unmarshal_methods[i] = Function(tok)
+            break
+        return True
+
+    def __add_if_marshal(self, tok):
+        is_valid, msg = method_has_attr(tok, "marshal")
+        if not is_valid:
+            return False
+
+        mtype = msg.split(" ")
+        if len(mtype) < 2:
+            raise RuntimeError("[x] Invalid annotation on marshal method! Must provide a type, e.g.: bytes")
+
+        for i in mtype:
+            if i not in marshal_types:
+                raise RuntimeError("[x] Improperly formatted marshaling method! Must select one of these values: {}".format(
+                    ", ".join(marshal_types)
+                ))
+
+            self.methods[i] = Function(tok)
+            break
+        return True
+
+    def __init__(self, file_path, args=None):
         self.methods = {}
+        self.unmarshal_methods = {}
         if not os.path.isfile(file_path):
             raise RuntimeError("[x] Failed to find requested file for marshaler! {}".format(file_path))
 
-        for tok in extract_tokens_from_file(file_path):
-            is_valid, msg = method_has_attr(tok, "marshal")
-            if is_valid:
-                mtype = msg.split(" ")
-                if len(mtype) < 2:
-                    raise RuntimeError("[x] Invalid annotation on marshal method! Must provide a type, e.g.: marshal bytes")
-
-                print("{}".format(", ".join(mtype)))
-                found = False
-                for i in mtype:
-                    if i in marshal_types:
-                        self.methods[i] = Function(tok)
-                        found = True
-                        break
-                if not found:
-                    raise RuntimeError("[x] Improperly formatted marshaling method! Must select one of these values: {}".format(
-                        ", ".join(marshal_types)
-                    ))
+        for tok in extract_tokens_from_file(file_path, include_paths=() if args is None else args):
+            if not self.__add_if_marshal(tok) or not self.__add_if_unmarshal(tok):
+                print("Here: {}, {}".format(tok.spelling, tok.type.kind))
+                continue
 
         self.__validate()
 
@@ -326,8 +376,16 @@ class Function(object):
         self.params = self.__get_params()
 
 
+def __extract_diag_strings(diag_iter):
+    res = []
+    for diag in diag_iter:
+        res.append(str(diag))
+
+    return "\n".join(res)
+
+
 #TODO: Handle namespaces
-def extract_tokens_from_file(path,
+def extract_tokens_from_file(path, include_paths=(),
                              node_filter=lambda x, p: True if x.location.file.name == p else False,
                              args=('-x', 'c++')):
     """
@@ -337,8 +395,21 @@ def extract_tokens_from_file(path,
     :param args: Args to pass to clang during the parsing of the file
     :return: Generator of filtered nodes
     """
+    fin_args = []
+    for arg in args:
+        fin_args.append(arg)
+
+    if not isinstance(include_paths, str) and not isinstance(include_paths, unicode):
+        for inc in include_paths:
+            fin_args.append("-I{}".format(inc))
+    else:
+        fin_args.append("-I{}".format(include_paths))
+
     idx = clang.cindex.Index.create()
-    tu = idx.parse(path, args)
+    tu = idx.parse(path, fin_args)
+
+    #if tu.diagnostics is not None:
+    #    raise RuntimeError("[x] Some errors occurred!\n{}".format(__extract_diag_strings(tu.diagnostics)))
 
     for node in tu.cursor.get_children():
         if node_filter(node, path):
@@ -352,10 +423,11 @@ def method_has_attr(node, attr_text):
     :param attr_text: The tag which the annotation text should start with
     :return: Bool indicating whether the method has the attribute or not
     """
-    if not isinstance(node, clang.cindex.Cursor) or not node.type.kind == TypeKind.FUNCTIONPROTO:
-        return False
+    if not isinstance(node, clang.cindex.Cursor) or node.type.kind != TypeKind.FUNCTIONPROTO:
+        return False, None
 
     for ctok in node.get_children():
+        print("{}".format(ctok.spelling))
         if ctok.kind == CursorKind.ANNOTATE_ATTR and ctok.spelling.startswith(attr_text):
             return True, ctok.spelling
 
@@ -377,7 +449,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if args.path is not None:
         funcs = dict()
-        toks = extract_tokens_from_file(args.path, args=("-x", "c++", "-I{}".format(common_includes_path)))
+        toks = extract_tokens_from_file(args.path, include_paths=common_includes_path)
         for token in toks:
             if token.type.kind == TypeKind.FUNCTIONPROTO:
                 funcs[token.spelling] = Function(token)
@@ -385,7 +457,7 @@ if __name__ == '__main__':
         for func in funcs.keys():
             print("{}".format(funcs[func]))
     if args.marshal is not None:
-        marsh = MarshalBase(args.marshal)
+        marsh = MarshalBase(args.marshal, args=common_includes_path)
         for k in marsh.methods.keys():
             print("{} - {}".format(k, marsh.methods.get(k)))
 
