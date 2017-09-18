@@ -4,6 +4,7 @@ import clang.cindex
 import itertools
 import argparse
 import random
+import string
 import sys
 import os
 
@@ -208,9 +209,49 @@ class CodeGenBaseObject(object):
         pass
 
 
-class CodeGenBaseImpl(CodeGenBaseObject):
+class WinCodeGenBaseImpl(CodeGenBaseObject):
+
+    def __get_symbol_name(self, count=random.randint(5, 15)):
+        """
+        Produces a symbol with a unique name (for the current file, at least)
+        :param count: Number of characters for the symbol, will default to a random value from 5-15
+        :return: The generated symbol name
+        """
+        while True:
+            sym = random.sample(string.ascii_letters + string.digits, count)
+            if sym not in self.sym_list:
+                self.sym_list.add(sym)
+                return sym
+
     def __init__(self, platform):
-        super(CodeGenBaseImpl, self).__init__(platform)
+        super(WinCodeGenBaseImpl, self).__init__(platform)
+        self.sym_list = set()
+        self.entry_decl = None
+        self.entry_template = """
+        ${entry_decl}
+        {
+            ${entry_code}
+        
+            return ${return_value}; 
+        }
+        
+        """
+
+    def begin_entry(self, entry_params):
+        """
+        Begins the generation of the entry point
+        :param entry_params: Dictionary; contains: type (DllMain, main, WinMain), platform (windows)
+        :return:
+        """
+        entry_type = entry_params.get("type", "main")
+
+        self.entry_decl = windows_entry_points.get(entry_type, None)
+        if self.entry_decl is None:
+            raise RuntimeError("[x] Invalid entry point type specified! Must be: {}".format(
+                ", ".join(windows_entry_points.keys())))
+
+        event_entry = entry_params.get("event_loop_type", "timer")
+
 
     def transform(self, p):
         pass
