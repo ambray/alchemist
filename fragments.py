@@ -129,26 +129,55 @@ windows_mainloop_cleanup = """
 """
 
 windows_mainloop = """
-while(TRUE) {
-    DWORD  dwRes = 0;
-    HANDLE hWaitables[] = { ${timer_name}, ${quit_event_name} };
+    while(TRUE) {
+        DWORD  dwRes = 0;
+        HANDLE hWaitables[] = { ${timer_name}, ${quit_event_name} };
     
-    dwRes = WaitForMultipleObjects(2, hWaitables, FALSE, INFINITE);
-    switch(dwRes) {
-    case 0: // timer
-        ${invoke_work}
-        break;
-    case 1: // quit_event
-        goto done;
-    default:  // an error occurred
-        goto done;
+        dwRes = WaitForMultipleObjects(2, hWaitables, FALSE, INFINITE);
+        switch(dwRes) {
+        case 0: // timer
+            ${invoke_work}
+            break;
+        case 1: // quit_event
+            goto done;
+        default:  // an error occurred
+            goto done;
+    
+        }
     
     }
-
-}
 done:
 
 """
+
+windows_do_work = """
+void __fastcall do_work(HANDLE hEvt)
+{
+    ${comms_var_decls}
+    unsigned long ${task_id_decl} = 0;
+    
+    ${invoke_comms_callout}
+
+    ${comms_retrieve_task_id}
+    
+    switch(${task_id_decl}) {
+    % for capability in capabilities
+    case ${capability.decl_name}:
+        ${capability.invoke}(${comms_task_block});
+        break;
+    % endfor
+    default:
+        break;
+    }
+}
+
+"""
+
+windows_invoke_do_work = """
+    do_work(${quit_event_name});
+    
+"""
+
 
 windows_mainblock = """
 
@@ -190,7 +219,7 @@ ${init_block}
 
 % for capability in capabilities
 
-${capability}
+${capability.invoke_decl}
 
 % endfor
 

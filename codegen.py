@@ -8,7 +8,9 @@ import string
 import sys
 import os
 
+from StringIO import StringIO
 from mako.template import Template
+from mako.runtime import Context
 from clang.cindex import TypeKind
 from clang.cindex import StorageClass
 from clang.cindex import CursorKind
@@ -226,16 +228,7 @@ class WinCodeGenBaseImpl(CodeGenBaseObject):
     def __init__(self, platform):
         super(WinCodeGenBaseImpl, self).__init__(platform)
         self.sym_list = set()
-        self.entry_decl = None
-        self.entry_template = """
-        ${entry_decl}
-        {
-            ${entry_code}
-        
-            return ${return_value}; 
-        }
-        
-        """
+        self.main_block = Template(windows_mainblock)
 
     def begin_entry(self, entry_params):
         """
@@ -243,14 +236,7 @@ class WinCodeGenBaseImpl(CodeGenBaseObject):
         :param entry_params: Dictionary; contains: type (DllMain, main, WinMain), platform (windows)
         :return:
         """
-        entry_type = entry_params.get("type", "main")
 
-        self.entry_decl = windows_entry_points.get(entry_type, None)
-        if self.entry_decl is None:
-            raise RuntimeError("[x] Invalid entry point type specified! Must be: {}".format(
-                ", ".join(windows_entry_points.keys())))
-
-        event_entry = entry_params.get("event_loop_type", "timer")
 
 
     def transform(self, p):
