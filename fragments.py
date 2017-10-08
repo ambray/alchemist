@@ -169,6 +169,8 @@ void __fastcall do_work(HANDLE hEvt)
     default:
         break;
     }
+    
+    ${comms_return_task_results}
 }
 
 """
