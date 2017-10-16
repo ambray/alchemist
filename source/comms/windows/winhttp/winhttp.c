@@ -38,3 +38,9 @@ void comms_free(comms_ctx* ctx)
 {
 
 }
+
+unsigned long comms_get_next_task(comms_ctx* ctx, const void* task, unsigned long size)
+{
+
+    return 0;
+}
