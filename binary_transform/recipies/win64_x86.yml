@@ -1,0 +1,7 @@
+type: Transformations
+name: add_to_lea_example
+recipe:
+      instr_add_to_lea:
+        range       : all
+      unknowntransform:
+        range       : 200
